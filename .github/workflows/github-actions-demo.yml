@@ -1,13 +1,21 @@
 name: GitHub Actions Demo
 
-# Trigger the workflow on manual dispatch (workflow_dispatch)
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Environment to deploy to"
-        type: choice
-        options:
-          - dev
-          - staging
-          - prod
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Output event name
+        run: echo "run always"
+      - name: Output branch name
+        run: echo "run always"
+      - name: List files
+        run: ls -al
