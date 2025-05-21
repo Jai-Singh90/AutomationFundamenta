@@ -1,21 +1,130 @@
-name: GitHub Actions Demo
+# Name of your workflow
+name: github action demo
 
+# Trigger the workflow on manual dispatch (workflow_dispatch) and push events
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        required: true
+      version:
+        description: "Version to deploy (e.g., v1.2.3)"
+        type: string
+        required: true
+      force:
+        description: "Force deployment (skip checks)?"
+        type: boolean
+        default: false
+        required: false
   push:
     branches:
-      - main
+      - main # or your main branch
 
+# Define the jobs that will run in this workflow
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs: # Define outputs for the build job
+      commit_sha: ${{ steps.get_commit_sha.outputs.commit_sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Needed to get the full commit history
+      - name: Get commit SHA
+        id: get_commit_sha
+        run: echo "::set-output name=commit_sha::$(git rev-parse HEAD)"
       - name: Output event name
-        run: echo "run always"
+        run: echo "always run"
       - name: Output branch name
-        run: echo "run always"
+        run: echo "always run"
       - name: List files
         run: ls -al
+
+  # Job to perform unit/integration tests
+  Test:
+    runs-on: ubuntu-latest
+    needs: build # This job depends on the 'build' job completing successfully
+    if: ${{ github.event_name == 'workflow_dispatch' }} # Only runs when triggered manually
+    environment: Test # Assigns this job to the 'Test' environment
+    steps:
+      - name: Testing...
+        run: echo "Testing..."
+
+  # Job to perform load tests
+  Load-Test:
+    runs-on: ubuntu-latest
+    needs: build # This job depends on the 'build' job completing successfully
+    if: ${{ github.event_name == 'workflow_dispatch' }} # Only runs when triggered manually
+    environment: Load-Test # Assigns this job to the 'Load-Test' environment
+    steps:
+      - name: Load-Test
+        run: echo "Load Testing..."
+      - name: Simulate load test duration
+        run: sleep 15 # Sleeps for 15 seconds to simulate load test duration
+
+  # Job to perform the deployment to Production
+  Production:
+    runs-on: ubuntu-latest
+    needs: [Test, Load-Test] # This job depends on both 'test' and 'load-test' jobs
+    # Only runs if the workflow was triggered manually AND 'prod' was selected as the environment
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod' }}
+    environment:
+      name: Production # Assigns this job to the 'Production' environment
+      url: https://writeabout.net # Sets the URL for the Production environment
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Checkout code for deployment
+      - name: Step 1 deploying...
+        run: echo "Step 1 deploying..." && sleep 10
+      - name: Step 2 deploying...
+        run: echo "Step 2 deploying..." && sleep 10
+      - name: Step 3 deploying...
+        run: echo "Step 3 deploying..." && sleep 10
+      - name: Step 4 deploying...
+        run: echo "Step 4 deploying..." && sleep 10
+      - name: Step 5 deploying...
+        run: echo "Step 5 deploying..." && sleep 10
+      - name: Deployment complete
+        run: echo "Production deployment finished successfully!"
+
+  # Original deploy job (renamed to avoid conflict and clarify purpose)
+  # This job will now only run if 'dev' or 'staging' is selected in manual dispatch
+  # and the workflow was triggered manually.
+  deploy_dev_staging:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.environment == 'dev' || github.event.inputs.environment == 'staging') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Display inputs
+        run: |
+          echo "Deploying version: ${{ github.event.inputs.version }} to ${{ github.event.inputs.environment }} environment"
+          echo "Force deployment: ${{ github.event.inputs.force }}"
+      - name: Simulate deployment
+        run: |
+          echo "Simulating deployment to ${{ github.event.inputs.environment }} environment..."
+          if ${{ github.event.inputs.force }}; then
+             echo "Skipping checks due to force option."
+          else
+             echo "Performing pre-deployment checks..."
+             echo "Checks passed."
+          fi
+          echo "Deployment process started for version ${{ github.event.inputs.version }}..."
+          sleep 5
+          echo "Deployment successful!"
