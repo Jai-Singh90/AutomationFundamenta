@@ -1,5 +1,5 @@
 # Name of your workflow
-name: github action demo
+name: Manual Deployment Workflow
 
 # Trigger the workflow on manual dispatch (workflow_dispatch) and push events
 on:
@@ -41,38 +41,38 @@ jobs:
         id: get_commit_sha
         run: echo "::set-output name=commit_sha::$(git rev-parse HEAD)"
       - name: Output event name
-        run: echo "always run"
+        run: echo "Event name: ${{ github.event_name }}"
       - name: Output branch name
-        run: echo "always run"
+        run: echo "Branch name: ${{ github.head_ref || github.ref_name }}"
       - name: List files
         run: ls -al
 
   # Job to perform unit/integration tests
-  Test:
+  test:
     runs-on: ubuntu-latest
     needs: build # This job depends on the 'build' job completing successfully
-    if: ${{ github.event_name == 'workflow_dispatch' }} # Only runs when triggered manually
+    # Removed 'if' condition so it runs on push and workflow_dispatch
     environment: Test # Assigns this job to the 'Test' environment
     steps:
       - name: Testing...
         run: echo "Testing..."
 
   # Job to perform load tests
-  Load-Test:
+  load-test:
     runs-on: ubuntu-latest
     needs: build # This job depends on the 'build' job completing successfully
-    if: ${{ github.event_name == 'workflow_dispatch' }} # Only runs when triggered manually
+    # Removed 'if' condition so it runs on push and workflow_dispatch
     environment: Load-Test # Assigns this job to the 'Load-Test' environment
     steps:
-      - name: Load-Test
+      - name: Load Testing...
         run: echo "Load Testing..."
       - name: Simulate load test duration
         run: sleep 15 # Sleeps for 15 seconds to simulate load test duration
 
   # Job to perform the deployment to Production
-  Production:
+  production:
     runs-on: ubuntu-latest
-    needs: [Test, Load-Test] # This job depends on both 'test' and 'load-test' jobs
+    needs: [test, load-test] # This job depends on both 'test' and 'load-test' jobs
     # Only runs if the workflow was triggered manually AND 'prod' was selected as the environment
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod' }}
     environment:
